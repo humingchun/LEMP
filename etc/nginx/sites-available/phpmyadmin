@@ -1,0 +1,100 @@
+# HTTP Server
+#
+server {
+    listen   80; ## listen on port 80 or other port for ipv4;
+
+    root /usr/share/phpmyadmin;
+
+    # Make site accessible from an URL,
+    # such as http://phpmyadmin.yourdomain.com/
+    server_name phpmyadmin.qiyangkeji.com;
+
+    location / {
+        # First attempt to serve request as file, then
+        # as directory, then return 404 response
+        try_files $uri $uri/ =404;
+        # Note: fall back to /index.html other than return
+        # 404 will cause 500 Internal Server Error if file
+        # /index.html does not exist.
+    }
+
+    # Deny access to libraries and setup direcotry to make phpMyAdmin more secure
+    # Reference: http://docs.phpmyadmin.net/en/latest/setup.html#securing-your-phpmyadmin-installation
+    #
+    location ^~ /libraries/ {
+        deny all;
+    }
+    location ^~ /setup/ {
+        deny all;
+    }
+
+    # Pass the PHP scripts to FastCGI server listening on unix socket
+    #
+    location ~ \.php$ {
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        # NOTE: You don't need to set "cgi.fix_pathinfo = 0;" in php.ini
+        # Bug http://cnedelcu.blogspot.com/2010/05/nginx-php-via-fastcgi-important.html 
+        # seems has been fixed in Ubuntu 12.04 LTS 
+
+    #   # With php5-cgi alone:
+    #   fastcgi_pass 127.0.0.1:9000;
+        # With php5-fpm:
+        fastcgi_pass unix:/var/run/php5-fpm.sock;
+        fastcgi_index index.php;
+        include fastcgi_params;
+    }
+
+    # Deny access to .htaccess files, if Apache's document root
+    # concurs with nginx's one
+    #
+    location ~ /\.ht {
+        deny all;
+    }
+}
+
+
+# HTTPS server
+#
+server {
+    # Use ssl parameter of listen directive over ssl directive
+    # Reference: http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl
+    #
+    listen 443 ssl;
+    server_name phpmyadmin.qiyangkeji.com;
+
+    root /usr/share/phpmyadmin;
+
+    # Replace localhost.crt and localhost.key with trusted third party
+    # signed certificate file and your key file if you have one
+    #
+    ssl_certificate /etc/ssl/certs/localhost.crt;
+    ssl_certificate_key /etc/ssl/private/localhost.key;
+
+    ssl_session_timeout 5m;
+
+    ssl_protocols SSLv3 TLSv1;
+    ssl_ciphers ALL:!ADH:!EXPORT56:RC4+RSA:+HIGH:+MEDIUM:+LOW:+SSLv3:+EXP;
+    ssl_prefer_server_ciphers on;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location ^~ /libraries/ {
+        deny all;
+    }
+    location ^~ /setup/ {
+        deny all;
+    }
+
+    location ~ \.php$ {
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_pass unix:/var/run/php5-fpm.sock;
+        fastcgi_index index.php;
+        include fastcgi_params;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+}

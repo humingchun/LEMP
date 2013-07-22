@@ -1,0 +1,274 @@
+# Domain Redirect
+#
+server {
+    listen      80;
+    listen      443 ssl;
+    server_name mage.qiyangkeji.com;
+
+    # Replace localhost.crt and localhost.key with trusted third party
+    # signed certificate file and your key file if you have one
+    #
+    ssl_certificate /etc/ssl/certs/localhost.crt;
+    ssl_certificate_key /etc/ssl/private/localhost.key;
+
+    ssl_session_timeout 5m;
+
+    ssl_protocols SSLv3 TLSv1;
+    ssl_ciphers ALL:!ADH:!EXPORT56:RC4+RSA:+HIGH:+MEDIUM:+LOW:+SSLv3:+EXP;
+    ssl_prefer_server_ciphers on;
+
+    return      301 $scheme://magento.qiyangkeji.com$request_uri;
+}
+
+
+# HTTP Server
+#
+server {
+    listen      80;
+    server_name magento.qiyangkeji.com;
+    root        /home/michael/magento;
+
+    ##
+    # Logging Settings: create error log for virtual host
+    ##
+    error_log   /var/log/nginx/error_magento.log warn;
+ 
+    location / {
+        # If missing pass the URI to Magento's front handler
+        try_files $uri $uri/ @handler; 
+    }
+ 
+    ##
+    # Deny Settings: consistent with .htaccess file in Magento official release
+    ## 
+    # .htaccess
+    #   <Files RELEASE_NOTES.txt>
+    #       order allow,deny
+    #       deny from all
+    #   </Files>
+    location =  /RELEASE_NOTES.txt {
+        deny        all;
+        access_log  off;
+    }
+    # app/.htaccess
+    #   Order deny,allow
+    #   Deny from all
+    location ^~ /app/ {
+        deny        all;
+        access_log  off; 
+    }
+    # lib/.htaccess
+    #   Order deny,allow
+    #   Deny from all
+    location ^~ /lib/ { 
+        deny        all;
+        access_log  off;
+    }
+    # includes/.htaccess
+    #   Order deny,allow
+    #   Deny from all
+    location ^~ /includes/ {
+        deny        all;
+        access_log  off;
+    }
+    # var/.htaccess
+    #   Order deny,allow
+    #   Deny from all
+    location ^~ /var/ {
+        deny        all;
+        access_log  off;
+    }
+    # pkginfo/.htaccess
+    #   Order deny,allow
+    #   Deny from all
+    location ^~ /pkginfo/ {
+        deny        all;
+        access_log  off;
+    }
+    # media/customer/.htaccess
+    #   Order deny,allow
+    #   Deny from all
+    location ^~ /media/customer/ {
+        deny        all;
+        access_log  off;
+    }
+    # media/downloadable/.htaccess
+    #   Order deny,allow
+    #   Deny from all
+    location ^~ /media/downloadable/ {
+        deny        all;
+        access_log  off;
+    }
+    # downloader/template/.htaccess
+    #   Order deny,allow
+    #   Deny from all
+    location ^~ /downloader/template/ {
+        deny        all;
+        access_log  off;
+    }
+    # downloader/.htaccess
+    #   <Files ~ "\.(cfg|ini|xml)$">
+    #       order allow,deny
+    #       deny from all
+    #   </Files>
+    location ~* ^/downloader/.*\.(cfg|ini|xml)$ {
+        deny        all;
+        access_log  off;
+    }
+    # errors/.htaccess
+    #   <FilesMatch "\.(xml|phtml)$">
+    #       Deny from all
+    #   </FilesMatch>
+    location ~* ^/errors/.*\.(xml|phtml)$ {
+        deny        all;
+        access_log  off;
+    }
+
+    # Magento uses a common front handler
+    location @handler {
+        rewrite     / /index.php;
+    }
+
+    # Forward paths like /js/index.php/x.js to relevant handler
+    location ~ \.php/ {
+        rewrite     ^(.*\.php)/ $1 last;
+    }
+
+    ##
+    # Expires Settings: images, scripts and styles set far future Expires header
+    #
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|bmp|webp)$ {
+        open_file_cache max=10000 inactive=48h;
+        open_file_cache_valid 48h;
+        open_file_cache_min_uses 2;
+        open_file_cache_errors off;
+        expires max;
+        log_not_found off;
+        access_log off;
+    }
+ 
+    # Pass the PHP scripts to FastCGI server listening on 127.0.0.1:9000
+    #
+    location ~ \.php$ {
+        # Stupid IE stuff
+        add_header X-UA-Compatible 'IE=Edge,chrome=1';
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        # NOTE: You don't need to set "cgi.fix_pathinfo = 0;" in php.ini
+        # Bug http://cnedelcu.blogspot.com/2010/05/nginx-php-via-fastcgi-important.html 
+        # seems has been fixed in Ubuntu 12.04 LTS
+
+    #   # With php5-cgi alone:
+    #   fastcgi_pass 127.0.0.1:9000;
+        # With php5-fpm:
+        fastcgi_pass unix:/var/run/php5-fpm.sock;
+        fastcgi_index index.php;
+        include fastcgi_params;
+    #   # Magento multi-store installations
+        # fastcgi_param MAGE_RUN_CODE default; 
+        # fastcgi_param  MAGE_RUN_TYPE store;
+    }
+
+    # Deny access to .htaccess files, if Apache's document root
+    # concurs with nginx's one
+    #
+    location ~ /\.ht {
+        deny all;
+    }
+}
+
+
+# HTTPS server
+#
+server {
+    # Use ssl parameter of listen directive over ssl directive
+    # Reference: http://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl
+    #
+    listen 443 ssl;
+    server_name magento.qiyangkeji.com;
+    root /home/michael/magento;
+
+    error_log   /var/log/nginx/error_magento.log warn;
+
+    # Replace localhost.crt and localhost.key with trusted third party
+    # signed certificate file and your key file if you have one
+    #
+    ssl_certificate /etc/ssl/certs/localhost.crt;
+    ssl_certificate_key /etc/ssl/private/localhost.key;
+
+    ssl_session_timeout 5m;
+
+    ssl_protocols SSLv3 TLSv1;
+    ssl_ciphers ALL:!ADH:!EXPORT56:RC4+RSA:+HIGH:+MEDIUM:+LOW:+SSLv3:+EXP;
+    ssl_prefer_server_ciphers on;
+
+    location / {
+        try_files $uri $uri/ @handler; 
+    }
+ 
+    location =  /RELEASE_NOTES.txt {
+        deny        all;
+        access_log  off;
+    }
+    location ^~ /app/ {
+        deny        all;
+        access_log  off; 
+    }
+    location ^~ /lib/ { 
+        deny        all;
+        access_log  off;
+    }
+    location ^~ /includes/ {
+        deny        all;
+        access_log  off;
+    }
+    location ^~ /var/ {
+        deny        all;
+        access_log  off;
+    }
+    location ^~ /pkginfo/ {
+        deny        all;
+        access_log  off;
+    }
+    location ^~ /media/customer/ {
+        deny        all;
+        access_log  off;
+    }
+    location ^~ /media/downloadable/ {
+        deny        all;
+        access_log  off;
+    }
+    location ^~ /downloader/template/ {
+        deny        all;
+        access_log  off;
+    }
+    location ~* ^/downloader/.*\.(cfg|ini|xml)$ {
+        deny        all;
+        access_log  off;
+    }
+    location ~* ^/errors/.*\.(xml|phtml)$ {
+        deny        all;
+        access_log  off;
+    }
+
+    location @handler {
+        rewrite     / /index.php;
+    }
+
+    location ~ \.php/ {
+        rewrite     ^(.*\.php)/ $1 last;
+    }
+ 
+    location ~ \.php$ {
+        add_header X-UA-Compatible 'IE=Edge,chrome=1';
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_pass unix:/var/run/php5-fpm.sock;
+        fastcgi_index index.php;
+        include fastcgi_params;
+        # fastcgi_param MAGE_RUN_CODE default; 
+        # fastcgi_param  MAGE_RUN_TYPE store;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+}
