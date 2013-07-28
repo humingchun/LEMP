@@ -262,6 +262,16 @@ server {
         rewrite     ^(.*\.php)/ $1 last;
     }
  
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|bmp|webp)$ {
+        open_file_cache max=10000 inactive=48h;
+        open_file_cache_valid 48h;
+        open_file_cache_min_uses 2;
+        open_file_cache_errors off;
+        expires max;
+        log_not_found off;
+        access_log off;
+    }
+
     location ~ \.php$ {
         add_header X-UA-Compatible 'IE=Edge,chrome=1';
         fastcgi_split_path_info ^(.+\.php)(/.+)$;
